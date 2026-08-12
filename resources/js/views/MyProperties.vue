@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, ref } from 'vue';
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { usePropertyStore } from '@/stores/propertyStore';
 import LoadingSpinner from '@/components/LoadingSpinner.vue';
@@ -14,6 +14,22 @@ const errorMessage = ref('');
 const deleting = ref(null);
 const confirmOpen = ref(false);
 const deleteError = ref('');
+
+watch(confirmOpen, (open) => {
+    document.body.style.overflow = open ? 'hidden' : '';
+});
+
+function onKeydown(event) {
+    if (event.key === 'Escape' && confirmOpen.value) {
+        confirmOpen.value = false;
+    }
+}
+
+onMounted(() => window.addEventListener('keydown', onKeydown));
+onBeforeUnmount(() => {
+    window.removeEventListener('keydown', onKeydown);
+    document.body.style.overflow = '';
+});
 
 onMounted(async () => {
     try {
