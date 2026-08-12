@@ -2,10 +2,10 @@
 /node_modules
 /public/build
 /public/hot
-# /public/storage/*
-# !/public/storage/
-# !/public/storage/properties/
-# !/public/storage/properties/*
+/public/storage/*
+!/public/storage/
+!/public/storage/properties/
+!/public/storage/properties/*
 /storage/*.key
 /storage/pail
 /vendor
