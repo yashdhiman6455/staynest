@@ -3,6 +3,7 @@ defineProps({
     title: { type: String, default: 'Nothing here yet' },
     message: { type: String, default: 'Try adjusting your search or explore more properties.' },
     actionLabel: { type: String, default: '' },
+    actionVisible: { type: Boolean, default: true },
 });
 
 defineEmits(['action']);
@@ -19,7 +20,7 @@ defineEmits(['action']);
         </div>
         <h3 class="mt-5 text-lg font-bold text-night-800">{{ title }}</h3>
         <p class="mt-1 max-w-sm text-sm text-night-500">{{ message }}</p>
-        <button v-if="actionLabel" type="button" class="btn-primary mt-6" @click="$emit('action')">
+        <button v-if="actionLabel && actionVisible" type="button" class="btn-primary mt-6" @click="$emit('action')">
             {{ actionLabel }}
         </button>
     </div>

@@ -23,6 +23,8 @@ const queryFromRoute = computed(() => ({
     guests: String(route.query.guests ?? ''),
 }));
 
+const hasActiveFilters = computed(() => Object.keys(buildPropertyQuery(queryFromRoute.value)).length > 0);
+
 async function load() {
     errorMessage.value = '';
 
@@ -90,7 +92,7 @@ watch(() => route.query, load);
                         {{ store.meta.total }} {{ store.meta.total === 1 ? 'stay' : 'stays' }} found
                     </span>
                     <button
-                        v-if="Object.keys(buildPropertyQuery(queryFromRoute)).length"
+                        v-if="hasActiveFilters"
                         type="button"
                         class="badge bg-night-100 text-night-600 transition hover:bg-night-200"
                         @click="clearFilters"
@@ -122,9 +124,12 @@ watch(() => route.query, load);
 
                 <EmptyState
                     v-else
-                    title="No stays match your search"
-                    message="Try adjusting your filters, or clear them to see every stay."
-                    action-label="Clear filters"
+                    :title="hasActiveFilters ? 'No stays match your search' : 'No stays available yet'"
+                    :message="hasActiveFilters
+                        ? 'Try adjusting your filters, or clear them to see every stay.'
+                        : 'Be the first to list a property and start welcoming guests.'"
+                    :action-label="hasActiveFilters ? 'Clear filters' : ''"
+                    :action-visible="hasActiveFilters"
                     @action="clearFilters"
                 />
             </div>
