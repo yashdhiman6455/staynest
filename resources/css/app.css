@@ -1,3 +1,95 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+    html {
+        scroll-behavior: smooth;
+    }
+
+    body {
+        @apply bg-white font-sans text-night-800 antialiased;
+    }
+
+    ::selection {
+        @apply bg-brand-500/90 text-white;
+    }
+}
+
+@layer components {
+    .container-page {
+        @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
+    }
+
+    .btn {
+        @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60;
+    }
+
+    .btn-primary {
+        @apply btn bg-brand-500 text-white shadow-lg shadow-brand-500/25 hover:bg-brand-600 hover:shadow-brand-600/30 active:scale-[0.98];
+    }
+
+    .btn-secondary {
+        @apply btn border border-night-200 bg-white text-night-700 hover:border-night-300 hover:bg-night-50 active:scale-[0.98];
+    }
+
+    .btn-ghost {
+        @apply btn text-night-600 hover:bg-night-100 hover:text-night-900;
+    }
+
+    .btn-danger {
+        @apply btn bg-red-600 text-white shadow-lg shadow-red-600/25 hover:bg-red-700 active:scale-[0.98];
+    }
+
+    .input {
+        @apply w-full rounded-xl border border-night-200 bg-white px-4 py-2.5 text-sm text-night-800 placeholder-night-400 shadow-sm transition focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500/30;
+    }
+
+    .label {
+        @apply mb-1.5 block text-sm font-semibold text-night-700;
+    }
+
+    .card {
+        @apply rounded-2xl border border-night-100 bg-white shadow-card;
+    }
+
+    .badge {
+        @apply inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold;
+    }
+}
+
+@layer utilities {
+    .text-balance {
+        text-wrap: balance;
+    }
+
+    .animate-fade-up {
+        animation: fadeUp 0.5s ease both;
+    }
+
+    .animate-fade-in {
+        animation: fadeIn 0.4s ease both;
+    }
+}
+
+@keyframes fadeUp {
+    from {
+        opacity: 0;
+        transform: translateY(14px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
