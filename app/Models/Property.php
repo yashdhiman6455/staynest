@@ -67,6 +67,22 @@ class Property extends Model
     }
 
     /**
+     * Return a full, browsable URL for the property image.
+     */
+    public function getImageUrlAttribute(): ?string
+    {
+        if (! $this->image) {
+            return null;
+        }
+
+        if (filter_var($this->image, FILTER_VALIDATE_URL)) {
+            return $this->image;
+        }
+
+        return url('storage/'.$this->image);
+    }
+
+    /**
      * Generate a unique slug from the property title.
      */
     public static function generateSlug(string $title): string
