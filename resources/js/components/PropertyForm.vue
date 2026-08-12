@@ -27,6 +27,9 @@ const form = reactive({
 
 const previewUrl = ref(props.initial.image_url ?? '');
 const imageInput = ref(null);
+const imageError = ref('');
+
+const MAX_IMAGE_SIZE = 2 * 1024 * 1024;
 
 const fieldErrors = computed(() => props.errors);
 
@@ -34,6 +37,15 @@ function onFileChange(event) {
     const file = event.target.files?.[0];
 
     if (!file) return;
+
+    if (file.size > MAX_IMAGE_SIZE) {
+        imageError.value = 'The image must not be larger than 2MB.';
+        clearImage();
+
+        return;
+    }
+
+    imageError.value = '';
 
     form.image = file;
 
@@ -236,6 +248,7 @@ const price = computed({
                 </div>
 
                 <p v-if="errorFor('image')" class="mt-1.5 text-xs font-medium text-red-600">{{ errorFor('image') }}</p>
+                <p v-else-if="imageError" class="mt-1.5 text-xs font-medium text-red-600">{{ imageError }}</p>
             </div>
         </div>
 
