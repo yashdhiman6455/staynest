@@ -887,3 +887,232 @@ Key details:
 
 ---
 
+## 13. Vue Architecture
+
+### 13.1 Views vs Components vs Stores vs Services
+
+| Layer | Role | Examples |
+| --- | --- | --- |
+| **View** | Route-level page; composes components and calls stores | `Home.vue`, `Properties.vue`, `Login.vue` |
+| **Component** | Reusable UI building block with props/events | `PropertyCard.vue`, `Navbar.vue`, `PropertyForm.vue` |
+| **Store** (Pinia) | Shared reactive state + actions | `authStore`, `propertyStore` |
+| **Service** | Thin wrappers around Axios calls | `authService`, `propertyService` |
+
+**Why separate API logic from UI logic?** Views never see Axios; they only call store actions or services. This makes components easier to test, keeps HTTP details (base URL, tokens, FormData) in one place (`api.js`), and means the UI can be swapped or reused without touching network code.
+
+### 13.2 Composition API usage
+
+All components use `<script setup>` (Composition API) with `ref`, `reactive`, `computed`, `watch`, `onMounted`, `defineProps`, `defineEmits`.
+
+---
+
+## 14. Pinia
+
+- **What:** Vue's official state management library.
+- **Why:** Auth status and property lists are shared across many components; a store prevents prop-drilling and duplicate API calls.
+
+### 14.1 `authStore` (`stores/authStore.js`)
+
+- **State:** `token` (from `localStorage`), `user` (parsed from `localStorage`), `loading`.
+- **Getter:** `isAuthenticated` → `Boolean(token)`.
+- **Actions:**
+  - `register(payload)` / `login(payload)` → call service, persist token+user to `localStorage`.
+  - `logout()` → call API, then `clear()` storage.
+  - `clear()` → empty state + remove `localStorage` keys.
+  - `hydrate(payload)` → update user + persist (kept for future use).
+
+### 14.2 `propertyStore` (`stores/propertyStore.js`)
+
+- **State:** `properties`, `myProperties`, `current`, `loading`, `saving`, `meta` (pagination).
+- **Actions:** `fetchProperties(params)`, `fetchProperty(slug)`, `fetchMyProperties()`, `createProperty(payload)`, `updateProperty(id, payload)`, `deleteProperty(id)`, `resetCurrent()`.
+
+### 14.3 How data moves through stores
+
+Login → authStore persists → Navbar/route guards read `auth.isAuthenticated` / `auth.user`. Browse → propertyStore fetches → grid re-renders. Create → propertyStore POSTs → details page reads `response.data`.
+
+---
+
+## 15. Axios
+
+### 15.1 Instance (`services/api.js`)
+
+```js
+const api = axios.create({
+    baseURL: import.meta.env.VITE_API_URL || '/api/v1',
+    headers: { Accept: 'application/json' },
+});
+```
+
+- **Request interceptor:** attaches `Authorization: Bearer <staynest_token>` to every request.
+- **Response interceptor:** on `401` (except login/register), clears `localStorage` and dispatches the `staynest:logout` window event; `App.vue` listens and reloads the page so the UI returns to the logged-out state.
+
+### 15.2 How each HTTP verb is used
+
+- `GET` — `api.get('/properties', { params })`, `api.get('/properties/'+slug)`, `api.get('/my-properties')`, `api.get('/user')`.
+- `POST` — `api.post('/register', payload)` (JSON), `api.post('/properties', formData)` (multipart).
+- `PUT` — `api.put('/properties/'+id, formData)` (multipart).
+- `DELETE` — `api.delete('/properties/'+id)`.
+
+### 15.3 Error handling
+
+`utils/errors.js`:
+- `extractErrorMessage(error, fallback)` — prefers `response.data.message`; maps `Network Error` to a friendly connection message.
+- `extractFieldErrors(error)` — flattens Laravel's `errors` object to `{ field: firstMessage }` for inline display.
+
+### 15.4 FormData + the Content-Type gotcha
+
+`propertyService.toFormData()` builds a `FormData` object. **Important:** the Axios instance must NOT set a global `Content-Type: application/json`, because axios 1.19 then converts FormData to JSON and silently drops the file — producing Laravel's `"Please choose a property image."` error. This was a real bug fixed in this project by removing the hard-coded `Content-Type` from `api.js`, so axios selects `multipart/form-data` for FormData and `application/json` for plain objects automatically.
+
+---
+
+## 16. Routing
+
+### 16.1 Laravel routes
+
+**`routes/web.php`** — a catch-all for the SPA:
+
+```php
+Route::get('/{any}', fn () => view('app'))->where('any', '.*');
+```
+
+Any URL (e.g. `/properties`, `/properties/urban-nest-apartment`) returns `app.blade.php`, which loads the Vue bundle. Vue Router takes over from there.
+
+**`routes/api.php`** — all API routes under `/api/v1` (see endpoint table in Section 9).
+
+### 16.2 Vue Router (`router/index.js`)
+
+| Path | Name | Page | Guard |
+| --- | --- | --- | --- |
+| `/` | `home` | Home | — |
+| `/properties` | `properties` | Properties | — |
+| `/properties/create` | `create-property` | CreateProperty | `requiresAuth` |
+| `/properties/:id/edit` | `edit-property` | EditProperty | `requiresAuth` |
+| `/properties/:slug` | `property-details` | PropertyDetails | — |
+| `/my-properties` | `my-properties` | MyProperties | `requiresAuth` |
+| `/login` | `login` | Login | `guestOnly` |
+| `/register` | `register` | Register | `guestOnly` |
+| `/:pathMatch(.*)*` | `not-found` | NotFound | — |
+
+Guards read `localStorage('staynest_token')`:
+- `requiresAuth` + no token → redirect to `/login?redirect=<current path>`.
+- `guestOnly` + token → redirect to Home.
+
+`router.afterEach` sets `document.title` per route meta.
+
+### 16.3 Why two routers?
+
+The **backend router** owns data and auth over HTTP. The **frontend router** owns the view state inside the SPA. This separation is what makes the frontend a true SPA: navigation never reloads the page, while the API remains cleanly exposed and reusable (e.g. for a mobile app later).
+
+---
+
+## 17. Validation
+
+### 17.1 Form Requests (actual rules)
+
+**`RegisterRequest`**
+```php
+name      => required|string|max:255
+email     => required|string|email|max:255|unique:users,email
+password  => required|string|min:8|confirmed     // needs password_confirmation field
+```
+
+**`LoginRequest`**
+```php
+email    => required|string|email
+password => required|string
+```
+
+**`StorePropertyRequest`** (custom messages for `image.required/image/max`)
+```php
+title           => required|string|max:255
+description     => required|string
+property_type   => required|in:[Apartment, House, Villa, Cottage, Hotel, Guest House]
+location        => required|string|max:255
+city/country    => nullable|string|max:255
+price_per_night => required|numeric|min:1|max:9999999
+guests          => required|integer|min:1|max:100
+bedrooms        => required|integer|min:0|max:100
+bathrooms       => required|integer|min:0|max:100
+status          => nullable|in:[published, draft]
+image           => required|image|mimes:jpeg,png,jpg,webp|max:2048
+```
+
+**`UpdatePropertyRequest`** — identical, except `image => nullable|image|...` (keep existing image on edit).
+
+### 17.2 Why backend validation when Vue validates?
+
+- The client can be bypassed (curl, Postman, scripts).
+- The API is a public surface — bad data must never reach the DB.
+- Laravel returns structured `errors` (`422`) that the UI renders inline; single source of truth for rules.
+- Client validation is only for UX (instant feedback, e.g. the 2MB image check).
+
+---
+
+## 18. Security
+
+**Implemented in the current project:**
+
+1. **Password hashing** — `User` model casts `password` → `hashed` (bcrypt). Plain text is never stored.
+2. **Sanctum tokens** — stateless Bearer tokens in `personal_access_tokens`; `auth:sanctum` guards protected routes.
+3. **Auth middleware** — `auth:sanctum` on all mutating/my-properties routes; unauthenticated → 401.
+4. **Authorization policies** — `PropertyPolicy` restricts update/delete/view to the owner.
+5. **Input validation** — Form Requests on every input endpoint (type, length, ranges, enum lists).
+6. **Mass-assignment protection** — `$fillable` on both models; controllers pass explicit arrays to `create`/`update` (no `$request->all()`).
+7. **File upload validation** — server-side `image` + `mimes` + `max:2048`; Laravel's `store()` generates random names (no user-controlled paths).
+8. **Ownership validation** — enforced in the controller via policies (never trusted from the frontend).
+9. **CORS** — `config/cors.php` restricts API origins to `CORS_ALLOWED_ORIGINS` (default `http://localhost:5173`); methods/headers allowed generically.
+10. **No secrets committed** — `.env` is gitignored; `.env.example` has placeholders only.
+11. **Pagination bounds** — `per_page` clamped to 1–24 to prevent huge queries.
+12. **`Accept: application/json`** on Axios so Laravel responds in JSON.
+
+**Not implemented in the current project:** CSRF token validation for the API (not needed with stateless Bearer auth), rate limiting beyond Laravel defaults, password reset/email verification flows, user avatar uploads, HTTPS enforcement, S3 remote storage.
+
+---
+
+## 19. Error Handling
+
+### 19.1 Backend (`bootstrap/app.php`)
+
+- `shouldRenderJsonWhen(api/*)` — all API errors return JSON, not HTML.
+- `AuthenticationException` → `401` `"You must be logged in to access this resource."`
+- `AccessDeniedHttpException` → `403` `"You are not allowed to perform this action."`
+- `NotFoundHttpException` → `404` `"Resource not found."`
+- `ValidationException` → `422` `{ message:"The given data was invalid.", errors:{field:[...]} }`
+- `redirectGuestsTo` → API requests return JSON; web requests redirect to `/login`.
+- **500s** → default Laravel JSON error when `Accept: application/json` and `APP_DEBUG` is on locally; production `APP_DEBUG=false` returns a generic message. No custom 500 renderer exists.
+
+### 19.2 Frontend
+
+- `extractErrorMessage()` shows `response.data.message` (friendly copy) — technical details are never shown.
+- `extractFieldErrors()` maps Laravel `errors` → inline field messages under inputs.
+- Views handle specific statuses: `PropertyDetails.vue` checks `err.response.status === 404` for "This property could not be found."
+- Dedicated states: `LoadingSpinner` (loading), `EmptyState` (no results / empty list), error banners with **"Try again"** buttons on Home and Properties.
+- `404` pages (unknown routes) → `NotFound.vue`.
+- Global `401` handling via the Axios interceptor → logout + reload.
+
+---
+
+## 20. Performance
+
+### Already optimized
+
+1. **Eager loading** — `->with('user:id,name,email,phone,avatar')` on listings prevents N+1 user lookups; only needed columns are loaded.
+2. **Pagination** — listings use `paginate()`; the frontend never loads all rows.
+3. **Bounds on query params** — `per_page` clamped to 1–24, `page` ≥ 1.
+4. **Database index** — composite index `(status, property_type)` supports the most common listing filter path.
+5. **Backend filtering** — filtering happens in SQL, not in JS.
+6. **`limit 6` on Home** — featured grid fetches only 6.
+7. **Lazy-loaded images** — `loading="lazy"` on property card images.
+8. **Route-level code splitting** — all views are lazy imports (`() => import(...)`), so Vite emits separate chunks loaded on demand.
+
+### Possible performance improvements (not currently implemented)
+
+- Full-text search / MySQL `FULLTEXT` index on `title`+`description` instead of `LIKE %...%`.
+- Caching (`Cache` store is configured to `database` but no cache usage exists).
+- Image resizing/compression pipeline (uploads currently store original files; no `intervention/image` or `imagine` is installed).
+- Database-paginate `my-properties` (currently `->get()`, no pagination).
+- Index on `slug` already unique; could add indexes for `price_per_night`, `guests`, `user_id`+`status` if tables grow.
+- Nginx reverse-proxy / CDN in production.
+
+---
+
