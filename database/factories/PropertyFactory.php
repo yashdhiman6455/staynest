@@ -39,6 +39,16 @@ class PropertyFactory extends Factory
     }
 
     /**
+     * Mark the property as published (default behaviour, kept for clarity).
+     */
+    public function published(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'status' => Property::STATUS_PUBLISHED,
+        ]);
+    }
+
+    /**
      * Mark the property as a draft.
      */
     public function draft(): static
