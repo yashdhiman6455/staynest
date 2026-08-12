@@ -20,7 +20,7 @@ class PropertyController extends Controller
     {
         $properties = Property::query()
             ->published()
-            ->with('user:id,name,avatar')
+            ->with('user:id,name,email,phone,avatar')
             ->filter($request->all())
             ->latest()
             ->paginate($request->integer('per_page', 12))
@@ -44,7 +44,7 @@ class PropertyController extends Controller
      */
     public function show(Request $request, string $slug): JsonResponse
     {
-        $property = Property::with('user:id,name,avatar')->where('slug', $slug)->first();
+        $property = Property::with('user:id,name,email,phone,avatar')->where('slug', $slug)->first();
 
         if (! $property) {
             return response()->json([
@@ -53,7 +53,7 @@ class PropertyController extends Controller
             ], 404);
         }
 
-        $isOwner = $request->user()?->id === $property->user_id;
+        $isOwner = $request->user('sanctum')?->id === $property->user_id;
 
         if ($property->status !== Property::STATUS_PUBLISHED && ! $isOwner) {
             return response()->json([
@@ -172,7 +172,7 @@ class PropertyController extends Controller
      */
     public function myProperties(Request $request): JsonResponse
     {
-        $properties = Property::with('user:id,name,avatar')
+        $properties = Property::with('user:id,name,email,phone,avatar')
             ->where('user_id', $request->user()->id)
             ->latest()
             ->get();
@@ -184,3 +184,4 @@ class PropertyController extends Controller
         ]);
     }
 }
+
