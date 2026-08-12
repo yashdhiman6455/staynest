@@ -113,6 +113,11 @@ EXPOSE 10000
 
 
 # ---------------------------------------------------------
-# Start Laravel
+# Start Laravel.
+# Migrations run on every boot so the storage image table
+# (property_image_blobs) always exists after a redeploy, the
+# public/storage symlink is (re)created defensively, and any image
+# already present on disk is mirrored into the shared database so it
+# survives the next ephemeral-filesystem redeploy.
 # ---------------------------------------------------------
-CMD php artisan serve --host=0.0.0.0 --port=${PORT:-10000}
+CMD php artisan migrate --force && (php artisan storage:link || true) && php artisan images:sync && php artisan serve --host=0.0.0.0 --port=${PORT:-10000}

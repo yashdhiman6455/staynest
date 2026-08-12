@@ -7,6 +7,7 @@ use App\Http\Requests\Api\StorePropertyRequest;
 use App\Http\Requests\Api\UpdatePropertyRequest;
 use App\Http\Resources\PropertyResource;
 use App\Models\Property;
+use App\Models\PropertyImageBlob;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -81,6 +82,10 @@ class PropertyController extends Controller
 
         $imagePath = $request->file('image')?->store('properties', 'public');
 
+        if ($request->hasFile('image') && $imagePath) {
+            PropertyImageBlob::saveFor($request->file('image'), $imagePath);
+        }
+
         $property = Property::create([
             'user_id' => $request->user()->id,
             'title' => $request->title,
@@ -121,7 +126,11 @@ class PropertyController extends Controller
                 Storage::disk('public')->delete($property->image);
             }
 
+            PropertyImageBlob::deleteFor($property->image);
+
             $imagePath = $request->file('image')->store('properties', 'public');
+
+            PropertyImageBlob::saveFor($request->file('image'), $imagePath);
         }
 
         $property->update([
@@ -161,6 +170,8 @@ class PropertyController extends Controller
         if ($property->image && Storage::disk('public')->exists($property->image)) {
             Storage::disk('public')->delete($property->image);
         }
+
+        PropertyImageBlob::deleteFor($property->image);
 
         $property->delete();
 
