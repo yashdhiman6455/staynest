@@ -18,12 +18,15 @@ class PropertyController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
+        $perPage = min(max((int) $request->integer('per_page', 12), 1), 24);
+        $page = max((int) $request->integer('page', 1), 1);
+
         $properties = Property::query()
             ->published()
             ->with('user:id,name,email,phone,avatar')
             ->filter($request->all())
             ->latest()
-            ->paginate($request->integer('per_page', 12))
+            ->paginate($perPage, ['*'], 'page', $page)
             ->withQueryString();
 
         return response()->json([
