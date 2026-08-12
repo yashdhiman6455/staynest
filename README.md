@@ -1,66 +1,62 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# StayNest
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+**Find a place you'll love to stay.**
 
-## About Laravel
+StayNest is a polished, responsive property listing platform built with **Laravel 11** and **Vue 3**. Hosts can list their spaces, travellers can search and filter stays, and everyone gets a fast, mobile-friendly experience backed by a clean REST API.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+> This is an assignment-focused implementation. The scope is deliberately limited to core property listing features — no bookings, payments, reviews, chat or admin panels.
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+---
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+## Table of Contents
 
-## Learning Laravel
+- [Features](#features)
+- [Technology Stack](#technology-stack)
+- [Getting Started](#getting-started)
+  - [Requirements](#requirements)
+  - [Installation](#installation)
+  - [Environment Setup](#environment-setup)
+  - [Database Setup](#database-setup)
+  - [Seed Data](#seed-data)
+  - [Run Laravel](#run-laravel)
+  - [Run Vue (Vite)](#run-vue-vite)
+- [Demo Credentials](#demo-credentials)
+- [API Overview](#api-overview)
+- [Frontend Structure](#frontend-structure)
+- [Deployment](#deployment)
+- [Testing](#testing)
+- [License](#license)
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+---
 
-You may also try the [Laravel Bootcamp](https://bootcamp.laravel.com), where you will be guided through building a modern Laravel application from scratch.
+## Features
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+**Public browsing**
 
-## Laravel Sponsors
+- Home page with a modern hero, search bar and featured property grid
+- Explore page listing all published properties with responsive grid + pagination
+- Property details page with image, description, stats and host info
+- Backend-driven search & filters: location, property type, min/max price, guests
+- Clear filters, empty-result state, loading state and friendly error states
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+**User accounts**
 
-### Premium Partners
+- Register, login and logout with Laravel Sanctum (token-based)
+- Validation with clear, inline error messages
+- Logged-in users see their name in the navbar
 
-- **[Vehikl](https://vehikl.com/)**
-- **[Tighten Co.](https://tighten.co)**
-- **[WebReinvent](https://webreinvent.com/)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel/)**
-- **[Cyber-Duck](https://cyber-duck.co.uk)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Jump24](https://jump24.co.uk)**
-- **[Redberry](https://redberry.international/laravel/)**
-- **[Active Logic](https://activelogic.com)**
-- **[byte5](https://byte5.de)**
-- **[OP.GG](https://op.gg)**
+**Hosting**
 
-## Contributing
+- Add a property with image upload (stored on the public disk)
+- My Properties dashboard to view, edit and delete your own listings
+- Edit and delete restricted to the property owner via a Laravel policy (403 otherwise)
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+## Technology Stack
 
-## Code of Conduct
-
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
-
-## Security Vulnerabilities
-
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
-
-## License
-
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+| Layer      | Technology                                             |
+| ---------- | ------------------------------------------------------ |
+| Backend    | PHP 8.2+, Laravel 11, Laravel Sanctum, Eloquent ORM    |
+| Database   | MySQL                                                  |
+| Frontend   | Vue 3 (Composition API), Vue Router, Pinia, Axios      |
+| Tooling    | Vite, Tailwind CSS                                     |
+| Testing    | PHPUnit (feature tests)                                |
