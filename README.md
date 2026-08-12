@@ -60,3 +60,120 @@ StayNest is a polished, responsive property listing platform built with **Larave
 | Frontend   | Vue 3 (Composition API), Vue Router, Pinia, Axios      |
 | Tooling    | Vite, Tailwind CSS                                     |
 | Testing    | PHPUnit (feature tests)                                |
+
+---
+
+## Getting Started
+
+### Requirements
+
+- PHP **8.2 or higher** (with the `pdo_mysql`, `fileinfo`, `gd` or `imagick` extensions)
+- Composer
+- Node.js **18+** and npm
+- MySQL **5.7+ / 8.x**
+
+### Installation
+
+Clone the repository and install the PHP and JavaScript dependencies:
+
+```bash
+git clone https://github.com/yashdhiman6455/staynest.git
+cd staynest
+
+composer install
+npm install
+```
+
+### Environment Setup
+
+Copy the example environment file and generate an application key:
+
+```bash
+cp .env.example .env
+php artisan key:generate
+```
+
+Open `.env` and configure your database and URLs:
+
+```dotenv
+APP_NAME=StayNest
+APP_URL=http://localhost:8000
+
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=staynest
+DB_USERNAME=root
+DB_PASSWORD=
+
+FILESYSTEM_DISK=public
+
+CORS_ALLOWED_ORIGINS=http://localhost:5173
+```
+
+> **CORS**: keep `http://localhost:5173` (the Vite dev server) in `CORS_ALLOWED_ORIGINS` during development. In production the SPA is served by Laravel on the same origin, so the API is same-origin and no CORS entry is needed.
+>
+> **API URL**: `VITE_API_URL` is empty by default, which makes Axios call the API relative to the app origin (`/api/v1`). Set it to an absolute URL only if the API is hosted separately.
+
+### Database Setup
+
+Create the database in MySQL:
+
+```sql
+CREATE DATABASE staynest CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+```
+
+Run the migrations:
+
+```bash
+php artisan migrate
+```
+
+Link the public storage directory so uploaded property images are accessible:
+
+```bash
+php artisan storage:link
+```
+
+### Seed Data
+
+Seed the database with **3 demo users** and **15 properties** (14 published, 1 draft) including images:
+
+```bash
+php artisan db:seed
+```
+
+> Rebuild the database from scratch with `php artisan migrate:fresh --seed`.
+
+### Run Laravel
+
+Start the API / backend on `http://localhost:8000`:
+
+```bash
+php artisan serve
+```
+
+### Run Vue (Vite)
+
+Start the Vite dev server on `http://localhost:5173` (it proxies `/api` and `/storage` to Laravel):
+
+```bash
+npm run dev
+```
+
+Open **http://localhost:5173** in your browser.
+
+For a production build, run `npm run build` — the compiled assets land in `public/build` and are served automatically by Laravel.
+
+---
+
+## Demo Credentials
+
+| Name         | Email               | Password  |
+| ------------ | ------------------- | --------- |
+| Yash Dhiman  | yash@staynest.test  | password  |
+| Priya Sharma | priya@staynest.test | password  |
+| Amit Verma   | amit@staynest.test  | password  |
+
+All three seeded users own several properties, so you can log in as any of them to test "My Properties", editing, and deleting. Attempting to edit another user's property returns **403 Forbidden**.
+
