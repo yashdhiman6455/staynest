@@ -57,6 +57,8 @@ function goToPage(page) {
         name: 'properties',
         query: { ...route.query, page },
     });
+
+    document.getElementById('stays-heading')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 onMounted(load);
@@ -65,7 +67,7 @@ watch(() => route.query, load);
 
 <template>
     <section class="container-page py-10 sm:py-12">
-        <div class="max-w-2xl">
+        <div class="max-w-2xl scroll-mt-24" id="stays-heading">
             <h1 class="text-3xl font-extrabold tracking-tight text-night-900 sm:text-4xl">Explore stays</h1>
             <p class="mt-2 text-sm text-night-500 sm:text-base">
                 Search, filter and find the perfect place to stay.
