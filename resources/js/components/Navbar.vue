@@ -1,14 +1,23 @@
 <script setup>
-import { ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { ref, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/authStore';
 import BrandLogo from './BrandLogo.vue';
 import { initials } from '@/utils/format';
 
+const route = useRoute();
 const router = useRouter();
 const auth = useAuthStore();
 
 const mobileOpen = ref(false);
+
+watch(mobileOpen, (open) => {
+    document.body.style.overflow = open ? 'hidden' : '';
+});
+
+watch(() => route.fullPath, () => {
+    mobileOpen.value = false;
+});
 
 const navLinks = [
     { label: 'Home', to: { name: 'home' } },
