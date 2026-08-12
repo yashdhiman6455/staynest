@@ -1,4 +1,5 @@
 <script setup>
+import { ref } from 'vue';
 import { formatPricePerNight } from '@/utils/format';
 
 defineProps({
@@ -7,6 +8,8 @@ defineProps({
         required: true,
     },
 });
+
+const imgFailed = ref(false);
 </script>
 
 <template>
@@ -16,11 +19,12 @@ defineProps({
     >
         <div class="relative aspect-[4/3] overflow-hidden bg-night-100">
             <img
-                v-if="property.image_url"
+                v-if="property.image_url && !imgFailed"
                 :src="property.image_url"
                 :alt="property.title"
                 loading="lazy"
                 class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                @error="imgFailed = true"
             />
             <div v-else class="flex h-full w-full items-center justify-center bg-gradient-to-br from-night-100 to-night-200">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="h-12 w-12 text-night-400">

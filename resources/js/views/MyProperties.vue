@@ -14,6 +14,7 @@ const errorMessage = ref('');
 const deleting = ref(null);
 const confirmOpen = ref(false);
 const deleteError = ref('');
+const imgFailed = ref({});
 
 watch(confirmOpen, (open) => {
     document.body.style.overflow = open ? 'hidden' : '';
@@ -95,10 +96,11 @@ async function confirmDelete() {
                     class="block h-40 w-full shrink-0 overflow-hidden rounded-xl bg-night-100 sm:h-24 sm:w-36"
                 >
                     <img
-                        v-if="property.image_url"
+                        v-if="property.image_url && !imgFailed[property.id]"
                         :src="property.image_url"
                         :alt="property.title"
                         class="h-full w-full object-cover transition duration-300 hover:scale-105"
+                        @error="imgFailed[property.id] = true"
                     />
                     <div v-else class="flex h-full w-full items-center justify-center bg-gradient-to-br from-night-100 to-night-200">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="h-8 w-8 text-night-400">

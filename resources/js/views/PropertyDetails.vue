@@ -12,6 +12,7 @@ const auth = useAuthStore();
 
 const error = ref('');
 const contactNotice = ref(false);
+const imgFailed = ref(false);
 
 const successBanner = computed(() => {
     if (route.query.created) return 'Your property has been published successfully!';
@@ -77,10 +78,11 @@ function showContactNotice() {
         <div v-else-if="property" class="animate-fade-in">
             <div class="overflow-hidden rounded-3xl shadow-lift">
                 <img
-                    v-if="property.image_url"
+                    v-if="property.image_url && !imgFailed"
                     :src="property.image_url"
                     :alt="property.title"
                     class="h-64 w-full object-cover sm:h-96 lg:h-[28rem]"
+                    @error="imgFailed = true"
                 />
                 <div v-else class="flex h-64 w-full items-center justify-center bg-gradient-to-br from-night-100 to-night-200 sm:h-96">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="h-16 w-16 text-night-400">
