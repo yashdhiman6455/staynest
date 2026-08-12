@@ -1116,3 +1116,510 @@ image           => required|image|mimes:jpeg,png,jpg,webp|max:2048
 
 ---
 
+## 21. Complete User Journey (technical)
+
+1. **Open StayNest** — `GET /` → `web.php` catch-all → `app.blade.php` → Vite assets → Vue mounts.
+2. **Browse** — Home mounts → `propertyStore.fetchProperties({per_page:6})` → `GET /api/v1/properties` → grid of `PropertyCard`s.
+3. **Search** — hero `SearchBar` → `router.push({name:'properties', query})` → URL changes → `Properties.vue` reloads.
+4. **Filter** — `FilterPanel` adds `guests`; URL drives everything; "Clear filters" resets the URL.
+5. **Open property** — click card → `/properties/{slug}` → `store.fetchProperty(slug)` → details page.
+6. **Register** — `/register` → POST `/api/v1/register` → 201 + token → stored → redirected Home.
+7. **Login** — `/login` → POST `/api/v1/login` → 200 + token → stored → redirected.
+8. **Add property** — `/properties/create` (guard) → multipart POST → 201 → redirect to details with success banner.
+9. **View own listing** — `/my-properties` → GET `/api/v1/my-properties` (Bearer) → rows with status badges.
+10. **Edit listing** — `/properties/{id}/edit` → PUT multipart → 200 → redirect to details with "updated" banner.
+11. **Delete listing** — confirm modal → DELETE → 200 → list refetched.
+12. **Logout** — POST `/api/v1/logout` (token revoked) → localStorage cleared → Home.
+
+---
+
+## 22. Complete Request Lifecycle (one representative request)
+
+Using **Add Property** (`POST /api/v1/properties`) as the canonical example:
+
+```
+Browser: PropertyForm submit → payload (includes File)
+   │
+   ▼  Vue
+CreateProperty.handleSubmit(payload)
+   │
+   ▼  Pinia
+propertyStore.createProperty(payload)
+   │
+   ▼  Service
+propertyService.create(payload) → toFormData(payload)
+   │
+   ▼  Axios
+api.post('/properties', formData)
+      request interceptor: Authorization: Bearer <token>
+      axios sets multipart/form-data boundary
+   │
+   ▼  Laravel Route
+POST /api/v1/properties  (auth:sanctum)
+   │
+   ▼  Middleware
+Sanctum validates token → resolves User
+   │
+   ▼  Form Request
+StorePropertyRequest::rules() → fails → 422 errors
+   │
+   ▼  Policy
+authorize('create', Property::class) → true
+   │
+   ▼  Controller
+image->store('properties','public') → Property::create([...])
+   │
+   ▼  Eloquent → MySQL
+INSERT INTO properties (...) VALUES (...)
+   │
+   ▼  Resource
+new PropertyResource($property->load('user'))
+   │
+   ▼  JSON
+201 { success, message, data:{ ...image_url... } }
+   │
+   ▼  Axios
+response resolved; interceptor passes through
+   │
+   ▼  Vue
+createProperty returns → router.push(details?created=1)
+   │
+   ▼  UI
+PropertyDetails renders success banner
+```
+
+---
+
+## 23. Architecture Diagrams
+
+### A. Authentication (login)
+
+```
+Login.vue ──► authStore.login ──► authService ──► POST /api/v1/login
+                                                            │
+                    localStorage ◄── token+user ◄── AuthController (Hash::check)
+                    (staynest_token)                          │
+                    router.push(redirect||home)          createToken()
+```
+
+### B. Home page loading
+
+```
+Home.vue ──► store.fetchProperties({per_page:6})
+        ──► GET /api/v1/properties
+        ──► PropertyController@index → published()→with(user)→filter→latest→paginate
+        ──► MySQL → PropertyResource[] → PropertyCard grid
+```
+
+### C. Search/filter
+
+```
+SearchBar/FilterPanel ──► URL query ──► Properties.vue
+        ──► buildPropertyQuery ──► GET /api/v1/properties?location&type&min_price&max_price&guests
+        ──► scopeFilter() ──► composed WHERE ... LIMIT 12
+        ──► results or EmptyState
+```
+
+### D. Add property
+
+```
+Navbar "Add Property" ──► /properties/create (guard) ──► PropertyForm
+        ──► FormData(image) ──► POST /api/v1/properties ──► validation → policy
+        ──► Storage(public/properties) + INSERT ──► 201 ──► details?created=1
+```
+
+### E. Edit property
+
+```
+MyProperties ──► /properties/{id}/edit ──► prefilled PropertyForm
+        ──► PUT /api/v1/properties/{id} (multipart)
+        ──► authorize('update') → replace image if new → UPDATE → 200
+        ──► details?updated=1
+```
+
+### F. Delete property
+
+```
+MyProperties "Delete" ──► confirm modal ──► DELETE /api/v1/properties/{id}
+        ──► authorize('delete') → delete image file → DELETE row → 200
+        ──► fetchMyProperties() refresh
+```
+
+### G. Image upload
+
+```
+<input type=file> ──► client 2MB check ──► form.image (File) ──► FormData
+        ──► multipart POST ──► StorePropertyRequest(image rules)
+        ──► $file->store('properties','public') ──► /storage/properties/<rand>.jpg
+        ──► DB path ──► image_url accessor ──► <img>
+```
+
+### H. Frontend–backend communication
+
+```
+Vue Views ⇄ Pinia Stores ⇄ Services ⇄ Axios (Bearer, FormData)
+        ⇄ HTTP JSON ⇄ Laravel API (routes/middleware/controllers/requests/policies/models)
+        ⇄ MySQL
+```
+
+### I. Database relationships
+
+```
+users ──1───── many──► properties
+ (PK id)              (FK user_id → users.id, CASCADE)
+                      (slug UNIQUE, status+property_type INDEX)
+```
+
+---
+
+## 24. Interview Questions (with answers)
+
+### BEGINNER
+
+**Q1. What is StayNest?**
+- *Short:* A property listing platform built with Laravel 11 + Vue 3.
+- *Detail:* Travellers browse/search/filter published stays; registered hosts create and manage their own listings.
+- *StayNest example:* Home page grid, explore filters, add/edit/delete own property, Sanctum login.
+
+**Q2. What are the main features?**
+- *Short:* Browse, search, filters, details, register/login, add/edit/delete property, my properties.
+- *Detail:* All backed by a REST API with pagination, image uploads, ownership policies, responsive Tailwind UI.
+- *Example:* `GET /api/v1/properties?location=Chandigarh&type=Apartment&max_price=5000`.
+
+**Q3. What is Eloquent?**
+- *Short:* Laravel's ORM.
+- *Detail:* Maps tables to PHP models, provides relationships, query builder, scopes, pagination, mass-assignment protection.
+- *Example:* `Property::published()->with('user')->filter($filters)->latest()->paginate(12)`.
+
+**Q4. What is a migration?**
+- *Short:* Version control for your database schema.
+- *Detail:* PHP classes whose `up()` creates/alters tables; reproducible with `php artisan migrate`.
+- *Example:* `create_properties_table` defines `user_id` FK, unique slug, status enum, composite index.
+
+**Q5. What is a seeder/factory?**
+- *Short:* Scripts that insert demo/test data.
+- *Detail:* Factory generates fake model attributes; Seeder creates actual rows (3 users, 15 properties).
+- *Example:* `DatabaseSeeder` copies 14 JPEGs into `storage/app/public/properties`.
+
+**Q6. What is Laravel Sanctum?**
+- *Short:* Lightweight token auth for SPAs/APIs.
+- *Detail:* Issues personal access tokens stored hashed in `personal_access_tokens`.
+- *Example:* `$user->createToken('auth-token')->plainTextToken` returned on login/register.
+
+**Q7. What is a Vue component?**
+- *Short:* Reusable reactive UI block.
+- *Detail:* `<script setup>` + template; receives `props`, emits events.
+- *Example:* `PropertyCard.vue` renders one listing; `PropertyForm.vue` shared by create and edit.
+
+**Q8. What is Pinia?**
+- *Short:* Vue state management.
+- *Detail:* Stores hold shared reactive state and actions.
+- *Example:* `authStore` holds token/user; `propertyStore` holds listings and pagination meta.
+
+**Q9. What is Vue Router?**
+- *Short:* Client-side router for SPAs.
+- *Detail:* Maps URLs to components, supports guards and lazy loading.
+- *Example:* `/properties/:slug` → `PropertyDetails.vue`; `requiresAuth` guard redirects to login.
+
+**Q10. What is Axios?**
+- *Short:* Promise HTTP client.
+- *Detail:* Used to call the Laravel API with headers, interceptors and FormData support.
+- *Example:* `api.js` instance + Bearer interceptor + 401 handler.
+
+**Q11. Why MySQL?**
+- *Short:* Reliable, widely used relational DB.
+- *Detail:* Fits relational data (users → properties FK), ACID, indexed queries, runs on XAMPP.
+- *Example:* Foreign key `user_id` with cascade delete.
+
+**Q12. What is an API Resource?**
+- *Short:* Transformer that shapes models into JSON.
+- *Detail:* Controls exactly which fields appear in responses.
+- *Example:* `PropertyResource` adds computed `image_url` and includes `user` when loaded.
+
+### INTERMEDIATE
+
+**Q13. How does registration work end-to-end?**
+- *Short:* Vue → Axios → API → validation → hashed create → token → stored in localStorage.
+- *Detail:* `RegisterRequest` validates; `User` model's `hashed` cast hashes the password; token saved to `personal_access_tokens`; `authStore` persists to `staynest_token`.
+- *Example:* See Section 7.1.
+
+**Q14. How is the password stored?**
+- *Short:* Bcrypt hash.
+- *Detail:* `'password' => 'hashed'` cast in `User`; verified with `Hash::check` on login.
+- *Example:* `AuthController::login()`.
+
+**Q15. How does the token work?**
+- *Short:* Bearer token in the `Authorization` header.
+- *Detail:* Created via Sanctum, stored hashed in DB; Axios request interceptor attaches it; `auth:sanctum` middleware validates it.
+- *Example:* `config.headers.Authorization = 'Bearer ' + localStorage.getItem('staynest_token')`.
+
+**Q16. How does logout work?**
+- *Short:* Revokes the token server-side, clears localStorage.
+- *Detail:* `AuthController::logout()` deletes `currentAccessToken()`; `authStore.clear()` removes both keys.
+- *Example:* `POST /api/v1/logout`.
+
+**Q17. How does search/filter work?**
+- *Short:* Backend Eloquent scopes.
+- *Detail:* Query params → `Property::scopeFilter()` composes `when(...)` conditions → SQL WHERE → paginated results.
+- *Example:* `GET /api/v1/properties?location=Chandigarh&type=Apartment&max_price=5000` (Section 11).
+
+**Q18. Why filter on the backend?**
+- *Short:* Correct pagination, less data transfer, single source of truth.
+- *Detail:* Only filtered rows are counted/paged; the client never receives the whole table.
+- *Example:* URL drives `Properties.vue` reloads.
+
+**Q19. How does image upload work?**
+- *Short:* File → FormData → multipart POST → storage → DB path → image_url.
+- *Detail:* `image` file rules (≤2MB), `store('properties','public')`, random names, `storage:link` public access, `image_url` accessor.
+- *Example:* Section 12.
+
+**Q20. What is a Form Request and why use it?**
+- *Short:* Dedicated validation class.
+- *Detail:* Encapsulates `authorize()` + `rules()` + `messages()`; keeps controllers clean.
+- *Example:* `StorePropertyRequest` with image rules and friendly messages.
+
+**Q21. How does the property listing page work?**
+- *Short:* Fetch → store → grid → pagination.
+- *Detail:* `Properties.vue` syncs filters to the URL query; pagination pushes `page`; `watch(route.query)` reloads.
+- *Example:* `Pagination.vue` emits `change(page)` → `goToPage`.
+
+**Q22. How is a slug generated?**
+- *Short:* `Str::slug` + uniqueness suffix.
+- *Detail:* `Property::generateSlug()` checks for collisions and appends `-2`, `-3`…
+- *Example:* "Urban Nest Apartment" → `urban-nest-apartment`.
+
+**Q23. How are properties ordered?**
+- *Short:* `latest()`.
+- *Detail:* `ORDER BY created_at DESC` on the listing query.
+- *Example:* `PropertyController::index()`.
+
+**Q24. What is eager loading?**
+- *Short:* Loading relations in fewer queries.
+- *Detail:* `with('user:id,...')` issues one join/query instead of N queries.
+- *Example:* Prevents N+1 on the listings grid.
+
+**Q25. How does pagination work?**
+- *Short:* Laravel `paginate()` + frontend page buttons.
+- *Detail:* API returns `meta {current_page,last_page,per_page,total}`; Vue renders pages and preserves query filters.
+- *Example:* `Pagination.vue`.
+
+**Q26. How does the frontend handle a 401?**
+- *Short:* Global interceptor logs the user out.
+- *Detail:* Axios response interceptor clears storage and dispatches `staynest:logout`; `App.vue` reloads.
+- *Example:* Expired/invalid token on any protected call.
+
+**Q27. What is CORS and how is it configured?**
+- *Short:* Browser security policy controlling cross-origin requests.
+- *Detail:* `config/cors.php` allows `api/*` paths from `CORS_ALLOWED_ORIGINS`.
+- *Example:* Dev frontend at 5173 calls API at 8000.
+
+**Q28. What happens when an unauthenticated user opens `/properties/create`?**
+- *Short:* Redirect to login with redirect-back.
+- *Detail:* Router `requiresAuth` guard checks localStorage token → `{name:'login', query:{redirect}}`; after login the user is returned.
+- *Example:* `Login.vue` uses `route.query.redirect`.
+
+### ADVANCED
+
+**Q29. How is authorization implemented?**
+- *Short:* Laravel Policies + `AuthorizesRequests`.
+- *Detail:* `PropertyPolicy` compares `$user->id === $property->user_id`; controllers call `$this->authorize(...)`; failures become 403 JSON.
+- *Example:* `update`/`delete` on another user's property → 403 (tested in `PropertyOwnershipTest`).
+
+**Q30. How does the SPA + REST separation work?**
+- *Short:* Vue is static SPA; Laravel is pure JSON API.
+- *Detail:* `web.php` catch-all serves the shell; `api.php` serves data; Axios bridges them.
+- *Example:* One Laravel deploy hosting both the built frontend and the API.
+
+**Q31. Why Laravel over Core PHP?**
+- *Short:* Batteries included and secure by default.
+- *Detail:* Routing, ORM, validation, auth, migrations, tests out of the box — writing these in core PHP is error-prone.
+- *Example:* Form Requests + Policies + Resources saved hundreds of lines.
+
+**Q32. Why Vue over Blade?**
+- *Short:* Reactive, interactive SPA.
+- *Detail:* State-driven UI, client-side routing, component reuse; Blade is server-rendered per page.
+- *Example:* `PropertyForm.vue` reused by create and edit; instant filter feedback.
+
+**Q33. Why the response envelope `{success, message, data, meta}`?**
+- *Short:* Consistent, predictable API.
+- *Detail:* Frontend utilities rely on `message` and `errors`; pagination reads `meta`.
+- *Example:* `extractErrorMessage` uses `response.data.message`.
+
+**Q34. How is validation exposed to Vue?**
+- *Short:* 422 with `errors` object.
+- *Detail:* Exception handler renders Laravel's `$e->errors()`; `extractFieldErrors` maps field→message.
+- *Example:* `fieldErrors.title` under the title input in `PropertyForm.vue`.
+
+**Q35. What is mass-assignment protection?**
+- *Short:* `$fillable` whitelist.
+- *Detail:* Only listed attributes can be set via `create/update`; prevents unexpected column writes.
+- *Example:* `Property::$fillable`, controllers pass explicit arrays.
+
+**Q36. How is file storage decoupled?**
+- *Short:* Laravel Storage disks.
+- *Detail:* Code writes to `Storage::disk('public')`; swapping to S3 later is a config change.
+- *Example:* `$request->file('image')->store('properties', 'public')`.
+
+**Q37. How does the app avoid N+1?**
+- *Short:* `with()` eager loading.
+- *Detail:* Listing loads owner once with limited columns.
+- *Example:* `->with('user:id,name,email,phone,avatar')`.
+
+**Q38. Why is a policy needed in addition to middleware?**
+- *Short:* Middleware says *who can be here*; policy says *what they may do*.
+- *Detail:* `auth:sanctum` only proves login; `PropertyPolicy` enforces ownership per-entity.
+- *Example:* Logged-in user A gets 403 editing B's property.
+
+**Q39. How would you scale search?**
+- *Short:* Add MySQL FULLTEXT indexes.
+- *Detail:* Replace `LIKE %…%` with `MATCH … AGAINST` for title/description.
+- *Example:* Future improvement to `scopeFilter`.
+
+**Q40. What happens to orphaned images?**
+- *Short:* They are deleted.
+- *Detail:* `update` deletes the replaced file; `destroy` deletes the property's file before deleting the row.
+- *Example:* `Storage::disk('public')->delete($property->image)`.
+
+**Q41. How are the tests structured?**
+- *Short:* Feature tests against in-memory SQLite.
+- *Detail:* `ApiTestCase` helpers (`authUser`, `propertyPayload`, `fakeImage`); 49 tests covering auth, CRUD, filters, ownership, drafts, images.
+- *Example:* `php artisan test` — all green.
+
+**Q42. What would you improve next?**
+- *Short:* Search indexing, image optimization, caching, paginated my-properties, email flows.
+- *Detail:* All are marked "possible improvements" in Section 20.
+
+---
+
+## 25. "Why did you use this?" — decision rationale
+
+| Choice | Why | Actual evidence in StayNest |
+| --- | --- | --- |
+| **Laravel vs Core PHP** | Framework gives routing, ORM, auth, validation, migrations, tests | Controllers, Requests, Policies, Resources all use framework features |
+| **Vue vs Blade** | Reactive SPA, client routing, component reuse | 9 router views, shared `PropertyForm`, Pinia reactivity |
+| **MySQL** | Relational data, ACID, FKs, runs on XAMPP | `users`/`properties` with `user_id` FK and cascade delete |
+| **REST API** | Clean frontend/backend boundary, reusable, testable | `/api/v1/*` JSON endpoints + 49 feature tests |
+| **Sanctum** | Simple, stateless token auth for SPAs | `createToken`, `auth:sanctum`, `personal_access_tokens` |
+| **Axios** | Interceptors for tokens/401s, FormData support | `api.js` request/response interceptors |
+| **Pinia** | Shared state without prop drilling | `authStore`, `propertyStore` used across Navbar/views |
+| **Eloquent** | Productive ORM with scopes/relations/pagination | `scopePublished`, `scopeFilter`, `with('user')`, `paginate()` |
+| **Form Requests** | Validation kept out of controllers | `app/Http/Requests/Api/*` |
+| **API Resources** | Explicit JSON contract | `PropertyResource` adds `image_url`, hides nothing sensitive |
+| **Policies** | Entity-level ownership authorization | `PropertyPolicy::update/delete` → 403 for non-owners |
+| **Foreign keys** | Referential integrity at DB level | `->constrained()->cascadeOnDelete()` |
+| **Pagination** | No unbounded result sets | `paginate()` + `meta` + frontend `Pagination.vue` |
+| **Backend filtering** | Correct paging, minimal transfer | `scopeFilter()` builds SQL; verified by filter tests |
+
+---
+
+## 26. Project Challenges (real, from the repository)
+
+### Challenge 1 — Unauthenticated API calls returned 500 instead of 401
+- **Problem:** Missing-token requests broke with a server error.
+- **Cause:** The API had no JSON rendering for `AuthenticationException`.
+- **Solution:** `bootstrap/app.php` `withExceptions` renders 401/403/404/422 as JSON for `/api/*`.
+- **Learned:** Always shape your API's error contract centrally (commit `8de7924`).
+
+### Challenge 2 — Policies weren't firing in controllers
+- **Problem:** `$this->authorize()` had no effect.
+- **Cause:** The base `Controller` lacked the `AuthorizesRequests` trait.
+- **Solution:** Added `AuthorizesRequests` to `app/Http/Controllers/Controller.php` (commit `7b5ffd3`).
+- **Learned:** Laravel auto-discovers policies, but the controller must actually use the authorization trait.
+
+### Challenge 3 — Draft properties leaked to the public details endpoint
+- **Problem:** Anyone could view a draft by guessing its slug.
+- **Cause:** `show` loaded by slug without a status check.
+- **Solution:** Resolve the Sanctum user on the public route and return 404 unless the requester is the owner (commit `1fcfa83`).
+- **Learned:** "Public" endpoints still need ownership-aware guards; add tests for draft visibility.
+
+### Challenge 4 — Unbounded pagination parameters
+- **Problem:** `per_page=999999` or negative `page` could stress the DB.
+- **Cause:** Params were passed straight to `paginate`.
+- **Solution:** Clamp `per_page` to 1–24 and `page` to ≥1 (commit `b0b8f64`).
+- **Learned:** Never trust client query params; validate/bound everything that touches SQL.
+
+### Challenge 5 — Image upload broke with "Please choose a property image."
+- **Problem:** Uploads with a selected image still failed `image.required`.
+- **Cause:** The Axios instance hard-coded `Content-Type: application/json`; axios 1.19 then **converted the FormData to JSON**, silently dropping the file.
+- **Solution:** Removed the global Content-Type from `api.js` so axios picks `multipart/form-data` for FormData and `application/json` for objects.
+- **Learned:** When sending `FormData`, never set a JSON content-type globally; verify uploads end-to-end with a real multipart request.
+
+### Challenge 6 — Mobile menu / delete modal UX
+- **Problem:** Mobile menu stayed open, body scrolled behind the modal, Escape didn't close.
+- **Solution:** Route-change watcher closes the menu; `watch(confirmOpen)` + `onBeforeUnmount` lock body scroll; a keydown listener closes on Escape (commits `3f2602e`, `a65eccd`).
+- **Learned:** Modal/menu polish needs lifecycle-aware cleanup to avoid leaked scroll locks.
+
+### Challenge 7 — Stale `public/hot` file broke the app in dev
+- **Problem:** Browser loaded assets from a dead Vite server.
+- **Cause:** A leftover `public/hot` file made Laravel think the dev server was running.
+- **Solution:** Deleted `public/hot` (gitignored); the production build (`public/build`) is served instead.
+- **Learned:** `public/hot` is transient state; if `npm run dev` isn't running, remove it and rebuild.
+
+---
+
+## 27. 60-Second Interview Explanation
+
+> "StayNest is a property listing web app I built with Laravel 11 and Vue 3. The backend is a stateless REST API: Laravel exposes JSON endpoints for authentication using Sanctum bearer tokens, and for properties with search, filtering and pagination. Validation lives in Form Requests, authorization in a Property Policy, and data access goes through Eloquent against a MySQL database with `users` and `properties` linked by a foreign key. The frontend is a Vue 3 SPA — Vue Router for pages, Pinia for state, Axios for API calls, Tailwind for a responsive, mobile-friendly UI. A guest can browse, search and filter stays; a logged-in host can upload a property image, and create, edit or delete only their own listings. Ownership is enforced server-side by policies, so a user can never touch someone else's property. I also wrote 49 PHPUnit feature tests that cover registration, login, filters, pagination, image uploads and ownership, and the whole project is deployable with documented steps, environment files and CORS configured."
+
+---
+
+## 28. 2-Minute Interview Explanation
+
+> "StayNest is a full-stack property listing platform. I chose Laravel for the backend because it gives me routing, Eloquent ORM, validation, authentication and testing out of the box, and Vue 3 on the frontend because I wanted a reactive single-page experience rather than server-rendered pages.
+>
+> The architecture is a clean API boundary. The Vue app runs as an SPA — Vue Router handles pages like `/properties/:slug`, Pinia stores share state, and Axios calls the Laravel API at `/api/v1`. Every response uses a consistent envelope: `success`, `message`, `data`, and `meta` for pagination.
+>
+> Authentication is Sanctum bearer tokens. On login or register the API returns a token which the Pinia auth store keeps in localStorage; an Axios interceptor attaches it to every request, and a global 401 handler logs the user out. Protected routes are wrapped in `auth:sanctum`, and the router also guards pages client-side.
+>
+> For the data model: a user has many properties. The `properties` table stores title, slug, type, location, price, guests, bedrooms, bathrooms, image path and a published/draft status. The `user_id` is a foreign key with cascade delete.
+>
+> The interesting parts: search and filtering run on the backend. The `Property` model has a `filter` query scope that conditionally adds WHERE clauses for location, type, min/max price and guests, then paginates — so the frontend never downloads the whole table. Image uploads go through FormData to a validated endpoint, Laravel stores them on the public disk with random names, and a `storage:link` symlink makes them publicly accessible; the resource exposes a computed `image_url`.
+>
+> Authorization is enforced twice: routes require a token, and a Property Policy ensures you can only edit or delete properties where `user_id` matches your id — otherwise the API returns 403. I built a reusable `PropertyForm` shared by create and edit, confirmation dialogs for delete, loading and empty states everywhere, and responsive Tailwind styling for mobile.
+>
+> Finally, I have 49 PHPUnit feature tests running against an in-memory SQLite database that prove registration, login, CRUD, filters, draft visibility, image uploads and ownership rules all behave correctly. Deployment is documented in the README — build the frontend with Vite, let Laravel serve it from `public/`, migrate and seed MySQL, and run `storage:link`."
+
+---
+
+## 29. Interview Cheat Sheet — concepts you must know
+
+1. **MVC** — Model (data), View (UI), Controller (logic). Laravel: Models/Eloquent, Vue views, controllers orchestrate.
+2. **REST API** — resource-style HTTP endpoints; GET reads, POST creates, PUT updates, DELETE removes.
+3. **Sanctum** — issues stateless Bearer tokens for SPAs; stored (hashed) in `personal_access_tokens`.
+4. **Authentication vs Authorization** — "who are you?" vs "what may you do?". Middleware = auth; Policies = authorization.
+5. **Eloquent** — Laravel's ActiveRecord ORM; maps tables to objects, chains queries.
+6. **Relationships** — `hasMany` (User → Property), `belongsTo` (Property → User); foreign key `user_id`.
+7. **Form Requests** — validation classes run before controllers; 422 with `errors` on failure.
+8. **API Resources** — transform models to JSON; `PropertyResource` exposes `image_url`, nested `user`.
+9. **Vue Composition API** — `<script setup>`, `ref/reactive/computed/watch/lifecycle`; logic organized by concern.
+10. **Vue Router** — client-side routing + guards (`requiresAuth`, `guestOnly`) + lazy-loaded views.
+11. **Pinia** — stores shared state and actions (`authStore`, `propertyStore`).
+12. **Axios** — HTTP client with interceptors (Bearer token, 401 handler) and FormData uploads.
+13. **MySQL foreign keys** — enforce referential integrity; `constrained()->cascadeOnDelete()`.
+14. **HTTP status codes** — 200 OK, 201 Created, 401 Unauthenticated, 403 Forbidden, 404 Not Found, 422 Validation.
+15. **Middleware** — runs before controllers; `auth:sanctum` protects API routes.
+16. **Policies** — per-model authorization; `PropertyPolicy::update` = owner check.
+17. **File uploads / Storage** — Laravel Storage disks, public disk, `store()`, `storage:link`.
+18. **FormData** — browser form encoding for file uploads; multipart requests.
+19. **CORS** — cross-origin access policy; origins allow-listed in `config/cors.php`.
+20. **Environment variables** — `.env` (gitignored) vs `.env.example` (committed); `APP_URL`, `DB_*`, `CORS_ALLOWED_ORIGINS`, `VITE_API_URL`.
+21. **Response envelope** — consistent `{success, message, data, meta}` JSON contract.
+22. **Exception handling** — `bootstrap/app.php` renders API errors as JSON (401/403/404/422).
+23. **Eager loading** — `with('user')` avoids N+1.
+24. **Slug** — URL-friendly unique identifier (`Str::slug` + uniqueness suffix).
+25. **Testing** — PHPUnit feature tests with in-memory SQLite and `RefreshDatabase`.
+
+---
+
+## Not implemented in the current project (for honesty)
+
+- Bookings, payments, Stripe, reviews, favorites/wishlist, notifications, chat, messaging, admin dashboard, maps, AI, real-time functionality.
+- Password reset and email verification flows (tables exist, no routes/controllers).
+- User avatar upload and phone in the registration form (DB columns exist, no endpoints/inputs).
+- S3/cloud storage (local public disk only).
+- Rate limiting beyond Laravel defaults.
+- Any deployed/live URL or CI/CD configuration.
+
+---
+
+*This document describes the StayNest codebase as it exists in the repository at the time of writing. Every claim was verified against the source: migrations, models, controllers, requests, resources, policies, routes, config, Vue views/components/stores/services, package files and tests.*
