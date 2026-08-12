@@ -38,7 +38,6 @@ async function load() {
         errorMessage.value = 'We could not load properties. Please try again later.';
     }
 }
-
 function applyFilters(filters) {
     router.push({
         name: 'properties',
@@ -83,9 +82,17 @@ watch(() => route.query, load);
             />
 
             <div>
-                <p v-if="errorMessage" class="mb-4 rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
-                    {{ errorMessage }}
-                </p>
+                <div v-if="errorMessage" class="mb-4 flex flex-col items-start gap-3 rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-600 sm:flex-row sm:items-center sm:justify-between">
+                    <span>{{ errorMessage }}</span>
+                    <button
+                        type="button"
+                        class="btn-secondary px-4 py-1.5 text-xs"
+                        :disabled="store.loading"
+                        @click="load"
+                    >
+                        Try again
+                    </button>
+                </div>
 
                 <div v-if="!errorMessage && !store.loading" class="mb-5 flex flex-wrap items-center gap-2">
                     <span class="text-sm text-night-500">

@@ -12,13 +12,17 @@ const store = usePropertyStore();
 
 const loadError = ref('');
 
-onMounted(async () => {
+async function loadProperties() {
+    loadError.value = '';
+
     try {
         await store.fetchProperties({ per_page: 6 });
     } catch {
         loadError.value = 'We could not load the latest stays. Please try again later.';
     }
-});
+}
+
+onMounted(loadProperties);
 
 function handleSearch(filters) {
     const query = buildPropertyQuery(filters);
@@ -79,8 +83,16 @@ function handleSearch(filters) {
                 </RouterLink>
             </div>
 
-            <p v-if="loadError" class="mt-6 rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
-                {{ loadError }}
+            <p v-if="loadError" class="mt-6 flex flex-col items-start gap-3 rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-600 sm:flex-row sm:items-center sm:justify-between">
+                <span>{{ loadError }}</span>
+                <button
+                    type="button"
+                    class="btn-secondary px-4 py-1.5 text-xs"
+                    :disabled="store.loading"
+                    @click="loadProperties"
+                >
+                    Try again
+                </button>
             </p>
 
             <LoadingSpinner v-if="store.loading" label="Loading stays…" />
